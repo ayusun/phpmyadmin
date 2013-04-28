@@ -5156,9 +5156,20 @@ class PMA_DisplayResults
 
     } // end of the '_getPlacedTableNavigatoins()' function
 
-    //A function which generates <span> tag for view
-    //called by _getResultsOperation and getCreateViewQueryResultOp
-    private function getViewLinkForQuery($analyzed_sql,$url_query){
+    /**
+     * Generates HTML to display the Create view in span tag
+     *
+     * @param array $analyzed_sql the analyzed Query
+     * @param string String with URL Parameters
+     *
+     * @return string
+     *
+     * @access private
+     *
+     * @see _getResultsOperations()
+     */   
+    private function getLinkForCreateView($analyzed_sql, $url_query)
+    {
         $results_operations_html = '';
         if (!PMA_DRIZZLE && !isset($analyzed_sql[0]['queryflags']['procedure'])) {
 
@@ -5179,25 +5190,27 @@ class PMA_DisplayResults
     }
     
     /**
-        A function used to generate the DOM's for query result operation
-        if query return 0 rows
-        gets called from sql.php 
-    */
-    public function getCreateViewQueryResultOp($analyzed_sql){
-    
-        $results_operations_html = '';
-        $_url_params = array(
-                    'db'        => $this->__get('db'),
-                    'table'     => $this->__get('table'),
-                    'printview' => '1',
-                    'sql_query' => $this->__get('sql_query'),
-                );
-        $url_query = PMA_generate_common_url($_url_params);
+     * Calls the _getResultsOperations with $only_view as true
+     *
+     * @param array $analyzed_sql the analyzed Query
+     *
+     * @return string
+     *
+     * @access public
+     *
+     */   
+    public function getCreateViewQueryResultOp($analyzed_sql)
+    {
         
-        $results_operations_html .= '<fieldset><legend>' . __('Query results operations')
-                        . '</legend>';
-        $results_operations_html .= $this->getViewLinkForQuery($analyzed_sql,$url_query);
-        $results_operations_html .= '</fieldset>';
+        $results_operations_html = '';
+        $fake_display_mode = array();
+        //calling to _getResultOperations with a fake display mode
+        //and setting only_view parameter to be true to generate just view
+        $results_operations_html .= $this->_getResultsOperations(
+                                            $fake_display_mode, 
+                                            $analyzed_sql, 
+                                            true
+                                            );
         return $results_operations_html;
    }
 
@@ -5213,7 +5226,7 @@ class PMA_DisplayResults
      *
      * @see     getTable()
      */
-    private function _getResultsOperations($the_disp_mode, $analyzed_sql)
+    private function _getResultsOperations($the_disp_mode, $analyzed_sql, $only_view = false)
     {
 
         $results_operations_html = '';
@@ -5221,23 +5234,33 @@ class PMA_DisplayResults
         $header_shown = false;
         $header = '<fieldset><legend>' . __('Query results operations')
             . '</legend>';
-
-        if (($the_disp_mode[6] == '1') || ($the_disp_mode[9] == '1')) {
-            // Displays "printable view" link if required
-            if ($the_disp_mode[9] == '1') {
-
-                if (!$header_shown) {
-                    $results_operations_html .= $header;
-                    $header_shown = true;
-                }
-
-                $_url_params = array(
+            
+        $_url_params = array(
                     'db'        => $this->__get('db'),
                     'table'     => $this->__get('table'),
                     'printview' => '1',
                     'sql_query' => $this->__get('sql_query'),
                 );
-                $url_query = PMA_generate_common_url($_url_params);
+        $url_query = PMA_generate_common_url($_url_params);
+        
+        if (!$header_shown) {
+            $results_operations_html .= $header;
+            $header_shown = true;
+        }
+        // if empty result set was produced we need to 
+        // show only view and not other options
+        if ($only_view == true) {
+            $results_operations_html .= $this->getLinkForCreateView($analyzed_sql,$url_query);
+
+            if ($header_shown) {
+                $results_operations_html .= '</fieldset><br />';
+            }
+         return $results_operations_html;
+        }      
+
+        if (($the_disp_mode[6] == '1') || ($the_disp_mode[9] == '1')) {
+            // Displays "printable view" link if required
+            if ($the_disp_mode[9] == '1') {
 
                 $results_operations_html
                     .= PMA_Util::linkOrButton(
@@ -5381,7 +5404,7 @@ class PMA_DisplayResults
             $header_shown = true;
         }
 
-        $results_operations_html .= $this->getViewLinkForQuery($analyzed_sql,$url_query);
+        $results_operations_html .= $this->getLinkForCreateView($analyzed_sql,$url_query);
 
         if ($header_shown) {
             $results_operations_html .= '</fieldset><br />';

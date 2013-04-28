@@ -962,9 +962,12 @@ if ((0 == $num_rows && 0 == $unlim_num_rows) || $is_affected) {
         $response->isSuccess($message->isSuccess());
         // No need to manually send the message
         // The Response class will handle that automatically
-        if($analyzed_sql[0]['querytype'] == PMA_DisplayResults::QUERY_TYPE_SELECT) {
-            $response->addHTML($displayResultsObject->getCreateViewQueryResultOp($analyzed_sql).'<br />');
-            
+        $query__type = PMA_DisplayResults::QUERY_TYPE_SELECT;
+        if($analyzed_sql[0]['querytype'] == $query__type) {
+            $createViewHTML = $displayResultsObject->getCreateViewQueryResultOp(
+                                                         $analyzed_sql
+                                                     );
+            $response->addHTML($createViewHTML.'<br />');
         }
         
         $response->addJSON(isset($extra_data) ? $extra_data : array());
