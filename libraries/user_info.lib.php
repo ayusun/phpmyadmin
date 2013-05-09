@@ -15,33 +15,40 @@ if (! defined('PHPMYADMIN')) {
  *
  * @return array
  */
-function showFetchedInfo($host, $user)
+function PMA_showFetchedInfo($host, $user)
 {
-        $query = "SELECT * FROM phpmyadmin.pma_user_info 
-        WHERE User = '". PMA_Util::sqlAddSlashes($user) . "' 
-        AND Host = '". PMA_Util::sqlAddSlashes($host) . "'";
+header("X-Content-Security-Policy: allow 'self'; img-src data:");
+header(
+                    "X-WebKit-CSP: allow 'self';"
+                    . "options inline-script eval-script;"
+                    . "img-src 'self' data:; "
+                );
+        $query = "SELECT * FROM ". PMA_Util::backquote($GLOBALS['cfg']['Server']['pmadb'])."."
+        . PMA_Util::backquote($GLOBALS['cfg']['Server']['userinfo'])
+        . " WHERE User = '". PMA_Util::sqlAddSlashes($user) . "' 
+            AND Host = '". PMA_Util::sqlAddSlashes($host) . "'";
 
         $userInfo_arr = PMA_DBI_fetch_result($query);
 
        //userinfo is available in the $userInfo_arr[0]
        //sanitising input for proper messages
-              $icon = isset($userInfo_arr[0]['Icon'])?$userInfo_arr[0]['Icon']:0;
-              $name = isset($userInfo_arr[0]['Full Name'])?$userInfo_arr[0]['Full Name']: "No Name Set";
-           $contact = isset($userInfo_arr[0]['Contact Information'])?$userInfo_arr[0]['Contact Information']:"No Contact Information";
-       $description = isset($userInfo_arr[0]['Description'])?$userInfo_arr[0]['Description']:"No Description found";
-             $email = isset($userInfo_arr[0]['E-Mail'])?$userInfo_arr[0]['E-Mail']: "No Email Found";
+              $icon = isset($userInfo_arr[0]['user_icon'])?$userInfo_arr[0]['user_icon']:0;
+              $name = isset($userInfo_arr[0]['full_name'])?$userInfo_arr[0]['full_name']: "No Name Set";
+           $contact = isset($userInfo_arr[0]['user_contact'])?$userInfo_arr[0]['user_contact']:"No Contact Information";
+       $description = isset($userInfo_arr[0]['user_desc'])?$userInfo_arr[0]['user_desc']:"No Description found";
+             $email = isset($userInfo_arr[0]['user_mail'])?$userInfo_arr[0]['user_mail']: "No Email Found";
 
-       $html  = '';
-       $html .= '<h2> User Details</h2>'
-            . '<table id=display_table><tr>'
+       $html  = "";
+       $html .= "<h2> User Details</h2>"
+            . "<table id=display_table><tr>"
             . '<td><div id= \'user_img\' ><img src = "data:image/png|image/jpeg|image/gif;base64,' 
             . htmlspecialchars(base64_encode($icon)) . '" width=150 height=150 /></div></td>'
-            . '<td><div id= \'details_text\'>'
-            . '<h1>' . htmlspecialchars($name) . '</h1>'
-            . '<div id = \'user_contact\'>'. htmlspecialchars($contact) . ","
+            . "<td><div id= 'details_text'>"
+            . "<h1>" . htmlspecialchars($name) . "</h1>"
+            . "<div id = 'user_contact'>". htmlspecialchars($contact) . ","
             . htmlspecialchars($email) . '</div>'
-            . '<div id = \'user_description\'>'. ($description) .'</div>'
-            . '</div></td></tr></table>';
+            . "<div id = 'user_description'>". ($description) ."</div>"
+            . "</div></td></tr></table>";
 
            //return all User details along with the html to display	
            return (array($name, $contact, $description, $email, $html));
@@ -62,56 +69,52 @@ function showFetchedInfo($host, $user)
  * 
  * @return string string containing html
  */
-function doInsert_Update($host, $user, $newname, $newcontact, $newmail, $newdesc, $newimg)
+function PMA_doInsert_Update($host, $user, $newname, $newcontact, $newmail, $newdesc, $newimg)
 {
-    $dmltype = "SELECT COUNT(*) from phpmyadmin.pma_user_info where User = '". $user . "'"
-            . " AND Host = '" . $host . "'";
+    $dmltype = "SELECT COUNT(*) from ". PMA_Util::backquote($GLOBALS['cfg']['Server']['pmadb'])."."
+                . PMA_Util::backquote($GLOBALS['cfg']['Server']['userinfo'])." where user = '". $user . "'"
+                . " AND host = '" . $host . "'";
     //Test if the User's Information already exist
     $result = PMA_DBI_fetch_result($dmltype);
 
     $dml_query = '';
     if ($result[0] > 0) { //information already exist, we need to update it
          $dml_query = "UPDATE "
-                 . "phpmyadmin.pma_user_info SET ";
+                 . PMA_Util::backquote($GLOBALS['cfg']['Server']['pmadb'])."."
+                 . PMA_Util::backquote($GLOBALS['cfg']['Server']['userinfo'])
+                 ." SET ";
         if (isset($newname)) {
-             $dml_query .= PMA_Util::backquote("Full Name")." ='". $newname . "'";
+             $dml_query .= PMA_Util::backquote("full_name")." ='". $newname . "'";
         }
         
         if (isset($newdesc)) {
-             $dml_query .= ", " .PMA_Util::backquote("Description"). "='". $newdesc ."'";
+             $dml_query .= ", " .PMA_Util::backquote("user_desc"). "='". $newdesc ."'";
         }
         
         if (isset($newmail)) {
-             $dml_query .= "," .PMA_Util::backquote("E-Mail"). "='". $newmail ."'";
+             $dml_query .= "," .PMA_Util::backquote("user_mail"). "='". $newmail ."'";
         }
         
         if (isset($newcontact)) {
-             $dml_query .= "," .PMA_Util::backquote("Contact Information"). "='". $newcontact ."'";
+             $dml_query .= "," .PMA_Util::backquote("user_contact"). "='". $newcontact ."'";
         }
         
-        if (isset($newimg) && $ext == "mysqli") {
-             $dml_query .= "," .PMA_Util::backquote("Icon"). "='"
-             . mysqli_escape_string(file_get_contents($newimg)) ."'";
-        } elseif (isset($newimg)) {
-             $dml_query .= "," .PMA_Util::backquote("Icon"). "='"
-             . mysql_escape_string(file_get_contents($newimg)) ."'";
-        }
-        
-         $dml_query .= " WHERE User='" . $user . "' AND Host='" .$host. "'";
+        if (isset($newimg)) {
+             $dml_query .= "," .PMA_Util::backquote("user_icon"). "='"
+             . PMA_Util::sqlAddSlashes(file_get_contents($newimg)) ."'";
+        } 
+        $dml_query .= " WHERE User='" . $user . "' AND Host='" .$host. "'";
     
     } else { //No information found, So we have to insert it
-          $dml_query  = 'INSERT '
-                     . 'INTO phpmyadmin.pma_user_info '
-                     . "VALUES ('". $user ."','". $host ."'";
+          $dml_query  = "INSERT INTO "
+                     . PMA_Util::backquote($GLOBALS['cfg']['Server']['pmadb'])."."
+                     . PMA_Util::backquote($GLOBALS['cfg']['Server']['userinfo'])
+                     . " VALUES ('". $user ."','". $host ."'";
           $dml_query .= ",'". $newname ."'";
           $dml_query .= ",'". $newdesc ."'";
           $dml_query .= ",'". $newmail ."'";
           $dml_query .= ",'". $newcontact ."'";
-        if ($ext == "mysqli") {
-               $dml_query .= ",'". PMA_Util::sqlAddSlashes(file_get_contents($newimg)) ."'";
-        } else {
-               $dml_query .= ",'". PMA_Util::sqlAddSlashes(file_get_contents($newimg)) ."'";
-        }
+          $dml_query .= ",'". PMA_Util::sqlAddSlashes(file_get_contents($newimg)) ."'";
           $dml_query .= ")"; 
     }
 
